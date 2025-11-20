@@ -148,6 +148,9 @@ patterns = [
     # Thu, 26 Jun 2014 14:00:51 +0400 Bob <bob@example.com>:
     re.compile(r'\S{3,10}, \d\d? \S{3,10} 20\d\d,? \d\d?:\d\d(:\d\d)?( \S+){3,6}@\S+:'),
 
+    # martes, 8 de abril de 2025, 9:56:16 -0400, Alice Bob <alice.b@example.com>:
+    re.compile(r'(lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo),\s*\d{1,2}\s+de\s+[A-Za-záéíóúñ]+(?:\s+de)?\s+20\d{2},\s*\d{1,2}:\d{2}:\d{2}\s+[+-]\d{4},\s+.+\s<[^>]+>:\s*', re.S | re.IGNORECASE),
+
     ############################
     # Dash Delimiters patterns #
     ############################
@@ -225,6 +228,24 @@ class Unquote:
             front.decompose()
             return True
 
+        # Missive
+        missive = soup.find('div', class_='missive_quote')
+        if missive:
+            missive.decompose()
+            return True
+
+        # Outreach
+        outreach = soup.find('div', class_='outreach-quote')
+        if outreach:
+            outreach.decompose()
+            return True
+
+        # Hubspot
+        hubspot = soup.find('div', class_='hs_reply')
+        if hubspot:
+            hubspot.decompose()
+            return True
+
         # Spark
         spark = soup.find(attrs={'name': 'messageReplySection'})
         if spark:
@@ -237,10 +258,16 @@ class Unquote:
             gmail.parent.decompose()
             return True
 
-        # gmail, fallback
+        # Another Gmail
+        gmail2 = soup.find('div', class_='gmail_quote')
+        if gmail2 and gmail2.parent and 'gmail_extra' in gmail2.parent.attrs.get('class', []):
+            gmail2.parent.decompose()
+            return True
+
+        # Gmail, fallback
         gmail = soup.find('blockquote', class_='gmail_quote')
-        if gmail and gmail.parent and gmail.parent.name == 'div' and 'gmail_quote' in gmail.parent.attrs.get('class', []):
-            gmail.parent.decompose()
+        if gmail:
+            gmail.decompose()
             return True
 
         # Yahoo
@@ -250,11 +277,21 @@ class Unquote:
             return True
 
         # Ymail
-        ymail = soup.find('div', class_='ymail_android_signature')
+        ymail = soup.find('div', id='ymail_android_signature')
         if ymail:
             ymail.decompose()
             # Remove everything that comes after:
             for ns in ymail.next_siblings:
+                if not isinstance(ns, NavigableString):
+                    ns.decompose()
+            return True
+
+        # Yahoo quoted mail
+        ymail2 = soup.find('p', class_='yahoo-quoted-begin')
+        if ymail2:
+            ymail2.decompose()
+            # Remove everything that comes after:
+            for ns in ymail2.next_siblings:
                 if not isinstance(ns, NavigableString):
                     ns.decompose()
             return True
@@ -270,6 +307,15 @@ class Unquote:
         if intercom:
             intercom.decompose()
             return True
+
+        # Reply
+        reply = soup.find('p', id='reply-intro')
+        if reply:
+            blockquote = reply.find_next_sibling('blockquote')
+            if blockquote and blockquote.attrs.get('type') == 'cite':
+                blockquote.decompose()
+                reply.decompose()
+                return True
 
         # MsOffice
         msoffice = soup.find('div', id='mail-editor-reference-message-container')
@@ -360,6 +406,15 @@ class Unquote:
             notion.decompose()
             return True
 
+        # Tutanota
+        tutanota = soup.find('blockquote', class_='tutanota_quote')
+        if tutanota:
+            if tutanota.previous_sibling and tutanota.previous_sibling.name == 'div':
+                tutanota.previous_sibling.decompose()
+
+            tutanota.decompose()
+            return True
+
         # Some odd Yahoo ydp
         ydp = soup.select_one('div[class$="yahoo_quoted"]')
         if ydp and ydp.get('id') and ydp['id'].find('yahoo_quoted') > -1:
@@ -395,6 +450,50 @@ class Unquote:
 
             apple.parent.decompose()
             return True
+
+        # Apple interchange
+        apple_ic = soup.find('br', class_='Apple-interchange-newline')
+        if apple_ic and apple_ic.parent and apple_ic.parent.name == 'blockquote':
+            apple_ic.parent.decompose()
+            return True
+
+        # Another apple
+        apple2 = soup.find('meta', attrs={'name': 'x-apple-disable-message-reformatting'})
+        if apple2:
+            # Find parent blockquote
+            parent = apple2.parent
+            while parent and parent.name != 'blockquote':
+                parent = parent.parent
+
+            if parent and parent.name == 'blockquote':
+                # We found
+                previous_child = parent.previous_sibling
+                while previous_child and isinstance(previous_child, NavigableString):
+                    previous_child = previous_child.previous_sibling
+                if previous_child and previous_child.name == 'div':
+                    if previous_child.find('blockquote', attrs={'type': 'cite'}):
+                        previous_child.decompose()
+
+                parent.decompose()
+                return True
+
+        # OneComWebmail
+        onecom = soup.find('div', class_='oneComWebmail-html')
+        if onecom and onecom.parent and onecom.parent.name == 'blockquote':
+            onecom.parent.decompose()
+
+        # NH*
+        nh = soup.find('div', class_='nh_extra')
+        if nh:
+            nh.decompose()
+
+        # GWP starting classname
+        # find div with id that starts with "gwp"
+        gwp = soup.select_one('div[id^="gwp"]')
+        if gwp:
+            if gwp.parent and gwp.parent.name.find('@') > -1:
+                gwp.parent.decompose()
+                return True
 
         return False
 
