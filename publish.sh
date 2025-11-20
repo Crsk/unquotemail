@@ -5,6 +5,8 @@ VERSION=$(python -c "from unquotemail import __version__; print(__version__)")
 
 rm -rf unquotemail/__pycache__
 
+python -m build
+
 # First, we push to Git with the new tag version
 git add --all
 git commit -a
@@ -12,6 +14,5 @@ git push origin master
 git tag $VERSION
 git push origin $VERSION
 
-python -m build
 python -m twine upload dist/*
 echo "Done"
