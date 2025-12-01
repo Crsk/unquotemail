@@ -1,8 +1,6 @@
 # UnquoteMail
 
-TypeScript port of [unquotemail](https://github.com/getfernand/unquotemail) - parse HTML/text emails and extract only the new message content, removing quoted replies.
-
-Cloudflare Worker compatible.
+TypeScript port of [unquotemail](https://github.com/getfernand/unquotemail) - parse HTML/text emails and extract only the new message content, removing quoted replies. This fork adds markdown output support.
 
 ## Installation
 
@@ -58,6 +56,7 @@ The markdown converter (used by both `getMarkdown()` and `htmlToMarkdown()`) is 
 
 - Original Python implementation by [Cyril Nicodeme](https://github.com/getfernand/unquotemail)
 - Regex patterns from [Talon (Mailgun)](https://github.com/mailgun/talon) and [Email Reply Parser (Crisp)](https://github.com/crisp-oss/email-reply-parser)
+- Markdown conversion by [node-html-markdown](https://github.com/crosstype/node-html-markdown)
 
 ## License
 
