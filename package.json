@@ -1,6 +1,6 @@
 {
   "name": "unquotemail",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Parse a given Html/Text email and return only the new text, without the quoted part.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -41,6 +41,7 @@
     "url": "https://github.com/crsk/unquotemail"
   },
   "devDependencies": {
+    "@types/node": "^24.10.1",
     "@vitest/coverage-v8": "^2.1.6",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
@@ -48,6 +49,7 @@
   },
   "dependencies": {
     "cheerio": "^1.0.0",
-    "marked": "^15.0.3"
+    "marked": "^15.0.3",
+    "node-html-markdown": "^2.0.0"
   }
 }

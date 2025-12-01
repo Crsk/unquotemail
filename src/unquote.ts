@@ -3,6 +3,7 @@ import type { CheerioAPI } from 'cheerio';
 import { marked } from 'marked';
 import { patterns } from './patterns';
 import { htmlToText } from './htmlToText';
+import { htmlToMarkdown } from './htmlToMarkdown';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type CheerioNode = any;
@@ -108,6 +109,7 @@ export class Unquote {
   private originalText: string | null;
   private _html: string | null = null;
   private _text: string | null = null;
+  private _markdown: string | null = null;
 
   constructor(
     html: string | null,
@@ -146,6 +148,16 @@ export class Unquote {
       }
     }
     return this._text;
+  }
+
+  getMarkdown(): string | null {
+    if (this._markdown === null) {
+      const html = this.getHtml();
+      if (html) {
+        this._markdown = htmlToMarkdown(html).trim();
+      }
+    }
+    return this._markdown;
   }
 
   private parseHtml($: CheerioAPI): boolean {
