@@ -79,5 +79,13 @@ export function htmlToText(html: string): string {
     // Final trim
     .trim();
 
+  // Escape markdown characters like Python's html2text does
+  // This prevents false pattern matches on content that looks like quote headers
+  text = text
+    // Escape leading dashes (horizontal rules)
+    .replace(/^(---+)/gm, '\\$1')
+    // Escape leading hash (headers)
+    .replace(/^(#+)/gm, '\\$1');
+
   return text;
 }

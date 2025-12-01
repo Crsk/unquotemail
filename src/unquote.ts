@@ -12,26 +12,93 @@ export interface UnquoteOptions {
 }
 
 /**
+ * Extract original tag names with their casing from HTML
+ */
+function extractOriginalTagCasing(html: string): Map<string, string> {
+  const tagMap = new Map<string, string>();
+  const tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)/g;
+  let match;
+  while ((match = tagRegex.exec(html)) !== null) {
+    const tagName = match[1];
+    const lowerTag = tagName.toLowerCase();
+    // Keep the first occurrence's casing (usually the opening tag)
+    if (!tagMap.has(lowerTag)) {
+      tagMap.set(lowerTag, tagName);
+    }
+  }
+  return tagMap;
+}
+
+/**
+ * Restore original tag casing in processed HTML
+ */
+function restoreTagCasing(html: string, originalCasing: Map<string, string>): string {
+  let result = html;
+  for (const [lowerTag, originalTag] of originalCasing) {
+    if (lowerTag !== originalTag) {
+      // Replace opening tags
+      result = result.replace(
+        new RegExp(`<${lowerTag}(\\s|>|\\/)`, 'gi'),
+        (match) => `<${originalTag}${match.slice(lowerTag.length + 1)}`
+      );
+      // Replace closing tags
+      result = result.replace(
+        new RegExp(`</${lowerTag}>`, 'gi'),
+        `</${originalTag}>`
+      );
+    }
+  }
+  return result;
+}
+
+/**
  * Extract inner HTML without the <html><head></head><body> wrapper
  * and convert to self-closing tags like Python's BeautifulSoup
  */
 function getInnerHtml($: CheerioAPI, originalHtml: string): string {
-  // Check if original HTML had html/body tags
+  // Extract original tag casing before cheerio normalizes it
+  const originalCasing = extractOriginalTagCasing(originalHtml);
+
+  // Check if original HTML had html/body/head tags
   const hadHtmlTag = /<html[\s>]/i.test(originalHtml);
   const hadBodyTag = /<body[\s>]/i.test(originalHtml);
+  const hadHeadTag = /<head[\s>]/i.test(originalHtml);
+
+  // Extract whitespace patterns from original
+  const htmlBodyWhitespace = originalHtml.match(/<html[^>]*>([\s]*)<body/i)?.[1] || '';
+  const bodyCloseWhitespace = originalHtml.match(/<\/body>([\s]*)<\/html>/i)?.[1] || '';
 
   let html: string;
   if (hadHtmlTag || hadBodyTag) {
     // Original had structure, keep it but normalize
     html = $.html();
+
+    // Remove <head></head> if original didn't have it
+    if (!hadHeadTag) {
+      html = html.replace(/<head><\/head>/g, '');
+    }
+
+    // Restore whitespace between html/body tags
+    if (htmlBodyWhitespace) {
+      html = html.replace(/<html([^>]*)><body/i, `<html$1>${htmlBodyWhitespace}<body`);
+    }
+    if (bodyCloseWhitespace) {
+      html = html.replace(/<\/body><\/html>/i, `</body>${bodyCloseWhitespace}</html>`);
+    }
   } else {
     // Original was a fragment, extract just body contents
     html = $('body').html() || '';
   }
 
   // Convert to self-closing tags like BeautifulSoup
-  html = html.replace(/<br>/g, '<br/>');
-  html = html.replace(/<hr>/g, '<hr/>');
+  html = html.replace(/<br>/gi, '<br/>');
+  html = html.replace(/<hr>/gi, '<hr/>');
+
+  // Normalize excessive whitespace (more than 4 consecutive newlines) like BeautifulSoup
+  html = html.replace(/\n{5,}/g, '\n\n\n\n');
+
+  // Restore original tag casing
+  html = restoreTagCasing(html, originalCasing);
 
   return html.trim();
 }
