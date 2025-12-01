@@ -227,11 +227,28 @@ export class Unquote {
       }
     }
 
-    // Gmail, fallback
+    // Gmail, fallback - handle blockquote.gmail_quote inside div.gmail_quote
     const gmailFallback = $('blockquote.gmail_quote');
     if (gmailFallback.length) {
-      gmailFallback.remove();
+      // Check if blockquote is inside a div.gmail_quote - if so, remove the whole div
+      const parentDiv = gmailFallback.closest('div.gmail_quote');
+      if (parentDiv.length) {
+        parentDiv.remove();
+      } else {
+        gmailFallback.remove();
+      }
       return true;
+    }
+
+    // Gmail div without blockquote but with quote content (cleanup empty gmail_quote divs)
+    const gmailDivOnly = $('div.gmail_quote');
+    if (gmailDivOnly.length) {
+      // Remove if it only contains whitespace or is empty after other processing
+      const textContent = gmailDivOnly.text().trim();
+      if (!textContent || gmailDivOnly.children().length === 0) {
+        gmailDivOnly.remove();
+        return true;
+      }
     }
 
     // Yahoo
