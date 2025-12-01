@@ -1,0 +1,53 @@
+{
+  "name": "unquotemail",
+  "version": "0.0.2",
+  "description": "Parse a given Html/Text email and return only the new text, without the quoted part.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "mail",
+    "email",
+    "parse",
+    "parser",
+    "unquote",
+    "reply",
+    "eml"
+  ],
+  "author": "Christopher Kiessling <crsk@mail.com>",
+  "contributors": [
+    "Cyril Nicodeme <contact@cnicodeme.com> (original Python implementation)"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crsk/unquotemail"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.6",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.6"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "marked": "^15.0.3"
+  }
+}
