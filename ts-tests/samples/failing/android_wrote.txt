@@ -1,6 +1,0 @@
-Test reply
-
----- John Smith wrote ----
-
-> quoted
-> text
