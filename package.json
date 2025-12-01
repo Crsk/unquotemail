@@ -1,6 +1,6 @@
 {
   "name": "unquotemail",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Parse a given Html/Text email and return only the new text, without the quoted part.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
