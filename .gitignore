@@ -1,3 +1,4 @@
 *.pyc
 env/*
 process/*
+node_modules/*
