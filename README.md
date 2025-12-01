@@ -17,8 +17,9 @@ import { Unquote } from 'unquotemail';
 
 const unquote = new Unquote(htmlContent, textContent);
 
-console.log(unquote.getHtml());  // HTML without quoted replies
-console.log(unquote.getText());  // Text without quoted replies
+console.log(unquote.getHtml());      // HTML without quoted replies
+console.log(unquote.getText());      // Text without quoted replies
+console.log(unquote.getMarkdown());  // Markdown without quoted replies
 ```
 
 ### Options
@@ -28,6 +29,24 @@ console.log(unquote.getText());  // Text without quoted replies
 const unquote = new Unquote(html, text, { parse: false });
 unquote.parse();  // Parse manually later
 ```
+
+### Standalone Converters
+
+```typescript
+import { htmlToText, htmlToMarkdown } from 'unquotemail';
+
+const text = htmlToText(html);
+const markdown = htmlToMarkdown(html);
+```
+
+### Markdown Converter Features
+
+The markdown converter (used by both `getMarkdown()` and `htmlToMarkdown()`) is optimized for email HTML:
+
+- Flattens layout tables (common in email templates) instead of rendering them as markdown tables
+- Ignores data URI images, scripts, and styles
+- Handles non-standard HTML from various email clients
+- Preserves nested blockquotes with proper `>` syntax
 
 ## How it works
 
