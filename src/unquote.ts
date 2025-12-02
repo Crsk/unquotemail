@@ -4,6 +4,12 @@ import { marked } from 'marked';
 import { patterns } from './patterns';
 import { htmlToText } from './htmlToText';
 import { htmlToMarkdown } from './htmlToMarkdown';
+import { cleanEmailHtml } from './htmlCleaner';
+
+export interface GetHtmlOptions {
+  /** If true (default), returns cleaned HTML without MSO/Outlook bloat */
+  clean?: boolean;
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type CheerioNode = any;
@@ -107,8 +113,10 @@ export class Unquote {
   private originalHtml: string | null;
   private originalText: string | null;
   private _html: string | null = null;
+  private _cleanHtml: string | null = null;
   private _text: string | null = null;
   private _markdown: string | null = null;
+  private _quoteHtml: string | null = null;
   private _parsed: boolean = false;
   private _cachedCheerio: CheerioAPI | null = null;
 
@@ -132,8 +140,32 @@ export class Unquote {
     return this._cachedCheerio;
   }
 
-  getHtml(): string | null {
+  /**
+   * Capture HTML of elements before removing them and store as quote
+   */
+  private captureAndRemove($: CheerioAPI, ...elements: CheerioNode[]): void {
+    const captured: string[] = [];
+    for (const el of elements) {
+      if (el && el.length) {
+        captured.push($.html(el));
+        el.remove();
+      }
+    }
+    if (captured.length) {
+      this._quoteHtml = captured.join('');
+    }
+  }
+
+  /**
+   * Get the HTML content without quoted replies.
+   * @param options.clean - If true (default), returns cleaned HTML without MSO/Outlook bloat.
+   *                        If false, returns the original HTML structure.
+   */
+  getHtml(options: GetHtmlOptions = {}): string | null {
+    const { clean = true } = options;
+
     this.ensureParsed();
+
     if (this._html === null) {
       if (this.originalHtml) {
         this._html = this.originalHtml;
@@ -141,7 +173,17 @@ export class Unquote {
         this._html = this.textToHtml(this.originalText);
       }
     }
-    return this._html;
+
+    // Return original if clean=false
+    if (!clean) {
+      return this._html;
+    }
+
+    // Return cleaned version (cached)
+    if (this._cleanHtml === null && this._html) {
+      this._cleanHtml = cleanEmailHtml(this._html);
+    }
+    return this._cleanHtml;
   }
 
   getText(): string | null {
@@ -159,12 +201,22 @@ export class Unquote {
   getMarkdown(): string | null {
     this.ensureParsed();
     if (this._markdown === null) {
-      const html = this.getHtml();
+      // Use clean HTML for markdown conversion
+      const html = this.getHtml({ clean: true });
       if (html) {
         this._markdown = htmlToMarkdown(html).trim();
       }
     }
     return this._markdown;
+  }
+
+  /**
+   * Get the quoted/replied content that was removed.
+   * Returns the HTML of the quoted reply section, or null if no quote was found.
+   */
+  getQuote(): string | null {
+    this.ensureParsed();
+    return this._quoteHtml;
   }
 
   /**
@@ -182,8 +234,7 @@ export class Unquote {
     if (moz.length) {
       const nextSibling = moz.next('blockquote[type="cite"]');
       if (nextSibling.length) {
-        nextSibling.remove();
-        moz.remove();
+        this.captureAndRemove($, moz, nextSibling);
         return true;
       }
     }
@@ -191,42 +242,42 @@ export class Unquote {
     // Freshdesk
     const freshdesk = $('div.freshdesk_quote');
     if (freshdesk.length) {
-      freshdesk.remove();
+      this.captureAndRemove($, freshdesk);
       return true;
     }
 
     // Front
     const front = $('.front-blockquote');
     if (front.length) {
-      front.remove();
+      this.captureAndRemove($, front);
       return true;
     }
 
     // Missive
     const missive = $('div.missive_quote');
     if (missive.length) {
-      missive.remove();
+      this.captureAndRemove($, missive);
       return true;
     }
 
     // Outreach
     const outreach = $('div.outreach-quote');
     if (outreach.length) {
-      outreach.remove();
+      this.captureAndRemove($, outreach);
       return true;
     }
 
     // Hubspot
     const hubspot = $('div.hs_reply');
     if (hubspot.length) {
-      hubspot.remove();
+      this.captureAndRemove($, hubspot);
       return true;
     }
 
     // Spark
     const spark = $('[name="messageReplySection"]');
     if (spark.length) {
-      spark.remove();
+      this.captureAndRemove($, spark);
       return true;
     }
 
@@ -239,7 +290,7 @@ export class Unquote {
         parentClasses.includes('gmail_quote_container') ||
         parentClasses.includes('gmail_quote')
       ) {
-        parent.remove();
+        this.captureAndRemove($, parent);
         return true;
       }
     }
@@ -250,7 +301,7 @@ export class Unquote {
       const parent = gmail2.parent();
       const parentClasses = parent.attr('class') || '';
       if (parentClasses.includes('gmail_extra')) {
-        parent.remove();
+        this.captureAndRemove($, parent);
         return true;
       }
     }
@@ -261,9 +312,9 @@ export class Unquote {
       // Check if blockquote is inside a div.gmail_quote - if so, remove the whole div
       const parentDiv = gmailFallback.closest('div.gmail_quote');
       if (parentDiv.length) {
-        parentDiv.remove();
+        this.captureAndRemove($, parentDiv);
       } else {
-        gmailFallback.remove();
+        this.captureAndRemove($, gmailFallback);
       }
       return true;
     }
@@ -274,7 +325,7 @@ export class Unquote {
       // Remove if it only contains whitespace or is empty after other processing
       const textContent = gmailDivOnly.text().trim();
       if (!textContent || gmailDivOnly.children().length === 0) {
-        gmailDivOnly.remove();
+        this.captureAndRemove($, gmailDivOnly);
         return true;
       }
     }
@@ -282,37 +333,37 @@ export class Unquote {
     // Yahoo
     const yahoo = $('div.yahoo_quoted');
     if (yahoo.length) {
-      yahoo.remove();
+      this.captureAndRemove($, yahoo);
       return true;
     }
 
     // Ymail
     const ymail = $('div#ymail_android_signature');
     if (ymail.length) {
-      ymail.nextAll().not('script, style').remove();
-      ymail.remove();
+      const nextEls = ymail.nextAll().not('script, style');
+      this.captureAndRemove($, ymail, nextEls);
       return true;
     }
 
     // Yahoo quoted mail
     const ymail2 = $('p.yahoo-quoted-begin');
     if (ymail2.length) {
-      ymail2.nextAll().not('script, style').remove();
-      ymail2.remove();
+      const nextEls = ymail2.nextAll().not('script, style');
+      this.captureAndRemove($, ymail2, nextEls);
       return true;
     }
 
     // GetFernand.com
     const fernand = $('div.fernand_quote');
     if (fernand.length) {
-      fernand.remove();
+      this.captureAndRemove($, fernand);
       return true;
     }
 
     // Intercom
     const intercom = $('div.history');
     if (intercom.length) {
-      intercom.remove();
+      this.captureAndRemove($, intercom);
       return true;
     }
 
@@ -321,8 +372,7 @@ export class Unquote {
     if (reply.length) {
       const blockquote = reply.next('blockquote[type="cite"]');
       if (blockquote.length) {
-        blockquote.remove();
-        reply.remove();
+        this.captureAndRemove($, reply, blockquote);
         return true;
       }
     }
@@ -330,7 +380,7 @@ export class Unquote {
     // MsOffice
     const msoffice = $('div#mail-editor-reference-message-container');
     if (msoffice.length) {
-      msoffice.remove();
+      this.captureAndRemove($, msoffice);
       return true;
     }
 
@@ -356,7 +406,10 @@ export class Unquote {
           root = msoRoot.parent();
         }
 
-        root.nextAll().remove();
+        // Capture quote before removing
+        const nextEls = root.nextAll();
+        this._quoteHtml = $.html(root) + nextEls.map((_, el) => $.html(el)).get().join('');
+        nextEls.remove();
         root.remove();
         return true;
       }
@@ -367,7 +420,9 @@ export class Unquote {
     if (outlook.length) {
       const prevHr = outlook.prevAll('hr').first();
       if (prevHr.length) {
-        outlook.nextAll().remove();
+        const nextEls = outlook.nextAll();
+        this._quoteHtml = $.html(prevHr) + $.html(outlook) + nextEls.map((_, el) => $.html(el)).get().join('');
+        nextEls.remove();
         outlook.remove();
         prevHr.remove();
         return true;
@@ -377,14 +432,14 @@ export class Unquote {
     // ProtonMail
     const proton = $('.protonmail_quote');
     if (proton.length) {
-      proton.remove();
+      this.captureAndRemove($, proton);
       return true;
     }
 
     // Trix
     const trix = $('div.trix-content>blockquote');
     if (trix.length) {
-      trix.remove();
+      this.captureAndRemove($, trix);
       return true;
     }
 
@@ -393,25 +448,30 @@ export class Unquote {
     if (zmail.length) {
       const previous = zmail.prev();
       if (previous.hasClass('zmail_extra_hr')) {
-        previous.remove();
+        this.captureAndRemove($, previous, zmail);
+      } else {
+        this.captureAndRemove($, zmail);
       }
-      zmail.remove();
       return true;
     }
 
     // Zendesk
     const zendesk = $('div.quotedReply>blockquote');
     if (zendesk.length) {
-      zendesk.parent().remove();
+      this.captureAndRemove($, zendesk.parent());
       return true;
     }
 
     // Zoho
     const zoho = $('div[title="beforequote:::"]');
     if (zoho.length) {
-      zoho.nextAll().remove();
+      const nextEls = zoho.nextAll();
       const prevSibling = zoho.prev();
-      if (prevSibling.text().trim().startsWith('---')) {
+      const hasPrevSep = prevSibling.text().trim().startsWith('---');
+
+      this._quoteHtml = (hasPrevSep ? $.html(prevSibling) : '') + $.html(zoho) + nextEls.map((_, el) => $.html(el)).get().join('');
+      nextEls.remove();
+      if (hasPrevSep) {
         prevSibling.remove();
       }
       zoho.remove();
@@ -421,7 +481,7 @@ export class Unquote {
     // Notion
     const notion = $('blockquote.notion-mail-quote');
     if (notion.length) {
-      notion.remove();
+      this.captureAndRemove($, notion);
       return true;
     }
 
@@ -430,9 +490,10 @@ export class Unquote {
     if (tutanota.length) {
       const prevDiv = tutanota.prev('div');
       if (prevDiv.length) {
-        prevDiv.remove();
+        this.captureAndRemove($, prevDiv, tutanota);
+      } else {
+        this.captureAndRemove($, tutanota);
       }
-      tutanota.remove();
       return true;
     }
 
@@ -441,7 +502,7 @@ export class Unquote {
     if (ydp.length) {
       const id = ydp.attr('id') || '';
       if (id.includes('yahoo_quoted')) {
-        ydp.remove();
+        this.captureAndRemove($, ydp);
         return true;
       }
     }
@@ -449,7 +510,7 @@ export class Unquote {
     // QT
     const qt = $('blockquote[type="cite"]#qt');
     if (qt.length) {
-      qt.remove();
+      this.captureAndRemove($, qt);
       return true;
     }
 
@@ -458,7 +519,7 @@ export class Unquote {
     if (alimail.length) {
       const parent = alimail.parent();
       if (parent.is('blockquote')) {
-        parent.remove();
+        this.captureAndRemove($, parent);
         return true;
       }
     }
@@ -477,8 +538,13 @@ export class Unquote {
       if (previousSibling.length && previousSibling.attr('dir')) {
         const childBlockquote = previousSibling.find('blockquote');
         if (childBlockquote.length) {
+          this._quoteHtml = $.html(previousSibling) + $.html(blockquoteParent);
           previousSibling.remove();
+        } else {
+          this._quoteHtml = $.html(blockquoteParent);
         }
+      } else {
+        this._quoteHtml = $.html(blockquoteParent);
       }
 
       blockquoteParent.remove();
@@ -490,7 +556,7 @@ export class Unquote {
     if (appleIc.length) {
       const parent = appleIc.parent();
       if (parent.is('blockquote')) {
-        parent.remove();
+        this.captureAndRemove($, parent);
         return true;
       }
     }
@@ -504,8 +570,13 @@ export class Unquote {
         if (prevDiv.length) {
           const nestedBlockquote = prevDiv.find('blockquote[type="cite"]');
           if (nestedBlockquote.length) {
+            this._quoteHtml = $.html(prevDiv) + $.html(blockquote);
             prevDiv.remove();
+          } else {
+            this._quoteHtml = $.html(blockquote);
           }
+        } else {
+          this._quoteHtml = $.html(blockquote);
         }
         blockquote.remove();
         return true;
@@ -517,14 +588,14 @@ export class Unquote {
     if (onecom.length) {
       const parent = onecom.parent();
       if (parent.is('blockquote')) {
-        parent.remove();
+        this.captureAndRemove($, parent);
       }
     }
 
     // NH*
     const nh = $('div.nh_extra');
     if (nh.length) {
-      nh.remove();
+      this.captureAndRemove($, nh);
     }
 
     // GWP starting classname
@@ -533,7 +604,7 @@ export class Unquote {
       const parent = gwp.parent();
       const tagName = parent.prop('tagName') || '';
       if (tagName.includes('@')) {
-        parent.remove();
+        this.captureAndRemove($, parent);
         return true;
       }
     }
@@ -636,12 +707,18 @@ export class Unquote {
       }
 
       if (matchingTag) {
-        // Remove everything after the matching tag's parent
-        matchingTag.parent().nextAll().remove();
+        // Capture elements after the matching tag's parent before removing
+        const afterElements = matchingTag.parent().nextAll();
+        const capturedAfter: string[] = [];
+        afterElements.each((_: number, el: any) => {
+          capturedAfter.push($fresh.html(el));
+        });
+        afterElements.remove();
 
-        // Also remove the blockquote that follows if present
+        // Also capture and remove the blockquote that follows if present
         const blockquoteAfter = matchingTag.parent().next('blockquote');
         if (blockquoteAfter.length) {
+          capturedAfter.push($fresh.html(blockquoteAfter));
           blockquoteAfter.remove();
         }
 
@@ -682,6 +759,9 @@ export class Unquote {
           // Check if it's not the root
           const tagName = tagToRemove.prop('tagName');
           if (tagName && tagName.toLowerCase() !== 'html' && tagName.toLowerCase() !== 'body') {
+            // Capture the quote HTML before removing
+            this._quoteHtml = $fresh.html(tagToRemove) + capturedAfter.join('');
+
             const parentOfRemoved: CheerioNode | null = tagToRemove.parent();
             tagToRemove.remove();
 
@@ -702,6 +782,9 @@ export class Unquote {
               }
             }
           }
+        } else if (capturedAfter.length) {
+          // If no tag to remove but we captured after elements, store them as quote
+          this._quoteHtml = capturedAfter.join('');
         }
 
         this._html = getInnerHtml($fresh, this.originalHtml!);

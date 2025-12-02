@@ -33,12 +33,11 @@ describe('Unquote', () => {
     let result: string | null = null;
 
     if (sampleFilename.endsWith('.html')) {
-      const unquote = new Unquote(sampleContent, null, { parse: false });
-      unquote.parse();
-      result = unquote.getHtml();
+      const unquote = new Unquote(sampleContent, null);
+      // Use clean: false to get original HTML structure (for backward compatibility with expected files)
+      result = unquote.getHtml({ clean: false });
     } else if (sampleFilename.endsWith('.txt')) {
-      const unquote = new Unquote(null, sampleContent, { parse: false });
-      unquote.parse();
+      const unquote = new Unquote(null, sampleContent);
       result = unquote.getText();
     } else {
       // Skip non-html/txt files
@@ -369,5 +368,62 @@ describe('Unquote.getMarkdown', () => {
     expect(result).toContain('Thank you for your order');
     // Should not have table markdown
     expect(result).not.toMatch(/\|\s*---/);
+  });
+});
+
+describe('Unquote.getQuote', () => {
+  it('should return null when no quote exists', () => {
+    const html = '<p>Hello world</p>';
+    const unquote = new Unquote(html, null);
+    expect(unquote.getQuote()).toBeNull();
+  });
+
+  it('should return quote HTML when Gmail quote exists', () => {
+    const html = `
+      <div>
+        <p>This is my reply.</p>
+        <div class="gmail_quote">
+          <div class="gmail_attr">On Jan 1, John wrote:</div>
+          <blockquote>Original message</blockquote>
+        </div>
+      </div>
+    `;
+    const unquote = new Unquote(html, null);
+    const quote = unquote.getQuote();
+    expect(quote).not.toBeNull();
+    expect(quote).toContain('Original message');
+    expect(quote).toContain('John wrote');
+  });
+
+  it('should extract quote from gmail_quote_container', () => {
+    const html = `
+      <div>
+        <p>My response here.</p>
+        <div class="gmail_quote_container">
+          <div class="gmail_attr">On Dec 1, Alice wrote:</div>
+          <blockquote class="gmail_quote">Previous conversation</blockquote>
+        </div>
+      </div>
+    `;
+    const unquote = new Unquote(html, null);
+    const quote = unquote.getQuote();
+    expect(quote).not.toBeNull();
+    expect(quote).toContain('Previous conversation');
+  });
+
+  it('should not include quote in getHtml result', () => {
+    const html = `
+      <div>
+        <p>This is my reply.</p>
+        <div class="gmail_quote">
+          <div class="gmail_attr">On Jan 1, John wrote:</div>
+          <blockquote>Original message</blockquote>
+        </div>
+      </div>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ clean: false });
+    expect(result).toContain('This is my reply');
+    expect(result).not.toContain('Original message');
   });
 });
