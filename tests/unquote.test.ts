@@ -571,6 +571,114 @@ describe('MS Outlook border-top variations', () => {
     expect(quote).toContain('From:');
     expect(quote).toContain('Quoted message');
   });
+
+  it('should handle tabs in style attribute', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">My reply.</p>
+        <div style="border:none;\tborder-top:\tsolid #B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in">
+          <p class="MsoNormal"><b>From:</b> Tab User</p>
+        </div>
+        <p class="MsoNormal">Tab quote.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('My reply');
+    expect(result).not.toContain('From:');
+  });
+
+  it('should handle spaces before colons', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">Reply here.</p>
+        <div style="border :none;border-top :solid #B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in">
+          <p class="MsoNormal"><b>From:</b> Space Before</p>
+        </div>
+        <p class="MsoNormal">Quoted.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('Reply here');
+    expect(result).not.toContain('From:');
+  });
+
+  it('should handle different border color values', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">My message.</p>
+        <div style="border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0in 0in 0in">
+          <p class="MsoNormal"><b>From:</b> Different Color</p>
+        </div>
+        <p class="MsoNormal">Quote content.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('My message');
+    expect(result).not.toContain('From:');
+  });
+
+  it('should handle cm units (converted to in)', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">CM units reply.</p>
+        <div style="border:none;border-top:solid #B5C4DF 1.0pt;padding:3.0pt 0cm 0cm 0cm">
+          <p class="MsoNormal"><b>From:</b> CM User</p>
+        </div>
+        <p class="MsoNormal">CM quote.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('CM units reply');
+    expect(result).not.toContain('From:');
+  });
+
+  it('should handle pt units (converted to in)', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">PT units reply.</p>
+        <div style="border:none;border-top:solid #B5C4DF 1.0pt;padding:3.0pt 0pt 0pt 0pt">
+          <p class="MsoNormal"><b>From:</b> PT User</p>
+        </div>
+        <p class="MsoNormal">PT quote.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('PT units reply');
+    expect(result).not.toContain('From:');
+  });
+
+  it('should handle fully spaced style with all variations', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">Full spacing reply.</p>
+        <div style="border : none ; border-top : solid #B5C4DF 1.0pt ; padding : 3.0pt 0in 0in 0in">
+          <p class="MsoNormal"><b>From:</b> Full Space User</p>
+        </div>
+        <p class="MsoNormal">Full space quote.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('Full spacing reply');
+    expect(result).not.toContain('From:');
+  });
 });
 
 describe('getHtml raw option', () => {

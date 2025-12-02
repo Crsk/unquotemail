@@ -406,8 +406,9 @@ export class Unquote {
     msoutlookCandidates.each((_, el) => {
       const parentDiv = $(el).parent().parent();
       const styleAttr = parentDiv.attr("style") || "";
-      // Match border:none (or border: none) followed by border-top:solid (or border-top: solid)
-      if (/border:\s*none[;,]\s*border-top:\s*solid/i.test(styleAttr)) {
+      // Match border:none (or border : none) followed by border-top:solid (or border-top : solid)
+      // Handles spaces before and after colons and semicolons
+      if (/border\s*:\s*none\s*[;,]\s*border-top\s*:\s*solid/i.test(styleAttr)) {
         msoutlook = $(el);
         return false; // break the loop
       }
@@ -420,8 +421,15 @@ export class Unquote {
         .replace(/pt/g, "in")
         .replace(/mm/g, "in");
 
-      // Normalize spaces for the endsWith check
-      const normalizedStyle = style.replace(/:\s+/g, ":").replace(/;\s+/g, ";");
+      // Normalize spaces for the endsWith check:
+      // - Remove spaces around colons and semicolons
+      // - Collapse multiple spaces to single space
+      // - Trim leading/trailing whitespace
+      const normalizedStyle = style
+        .replace(/\s*:\s*/g, ":")
+        .replace(/\s*;\s*/g, ";")
+        .replace(/\s+/g, " ")
+        .trim();
       if (normalizedStyle.endsWith(" 1.0in;padding:3.0in 0in 0in 0in")) {
         let root = msoRoot;
         const parentContents = msoRoot.parent().children();
