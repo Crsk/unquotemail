@@ -2,7 +2,7 @@ import * as htmlparser2 from "htmlparser2";
 
 /**
  * Clean messy email HTML using a SAX parser.
- * Removes MSO/Outlook bloat while preserving content.
+ * Removes noise/metadata while preserving content.
  *
  * This is faster than Cheerio (no DOM) and safer than Regex (correct parsing).
  */
