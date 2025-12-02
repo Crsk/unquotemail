@@ -398,17 +398,31 @@ export class Unquote {
     }
 
     // MsOutlook
-    const msoutlook = $(
-      'div[style^="border:none;border-top:solid"]>p.MsoNormal>b'
-    );
-    if (msoutlook.length) {
-      const msoRoot = msoutlook.parent().parent();
+    // Find all potential Outlook quote divs by structure, then validate style with regex
+    // This handles spacing variations like "border-top:solid" vs "border-top: solid"
+    const msoutlookCandidates = $("div[style]>p.MsoNormal>b");
+    let msoutlook: ReturnType<typeof $> | null = null;
+
+    msoutlookCandidates.each((_, el) => {
+      const parentDiv = $(el).parent().parent();
+      const styleAttr = parentDiv.attr("style") || "";
+      // Match border:none (or border: none) followed by border-top:solid (or border-top: solid)
+      if (/border:\s*none[;,]\s*border-top:\s*solid/i.test(styleAttr)) {
+        msoutlook = $(el);
+        return false; // break the loop
+      }
+    });
+
+    if (msoutlook && $(msoutlook).length) {
+      const msoRoot = $(msoutlook).parent().parent();
       const style = (msoRoot.attr("style") || "")
         .replace(/cm/g, "in")
         .replace(/pt/g, "in")
         .replace(/mm/g, "in");
 
-      if (style.endsWith(" 1.0in;padding:3.0in 0in 0in 0in")) {
+      // Normalize spaces for the endsWith check
+      const normalizedStyle = style.replace(/:\s+/g, ":").replace(/;\s+/g, ";");
+      if (normalizedStyle.endsWith(" 1.0in;padding:3.0in 0in 0in 0in")) {
         let root = msoRoot;
         const parentContents = msoRoot.parent().children();
         const htmlElements = parentContents.filter((_, el) =>

@@ -465,6 +465,114 @@ describe('Unquote.getQuote', () => {
   });
 });
 
+describe('MS Outlook border-top variations', () => {
+  // Helper to create Outlook-style HTML with different border-top formats
+  const createOutlookHtml = (borderStyle: string, quoteChar: string = '"') => `
+    <html><body>
+    <div class="WordSection1">
+      <p class="MsoNormal">Hi. This is my reply.</p>
+      <div style=${quoteChar}border:none;${borderStyle}#B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in${quoteChar}>
+        <p class="MsoNormal"><b>From:</b> John Doe</p>
+      </div>
+      <p class="MsoNormal">Original message content here.</p>
+    </div>
+    </body></html>
+  `;
+
+  it('should handle border-top:solid (no space) with double quotes', () => {
+    const html = createOutlookHtml('border-top:solid ', '"');
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('This is my reply');
+    expect(result).not.toContain('From:');
+    expect(result).not.toContain('Original message content');
+  });
+
+  it('should handle border-top: solid (with space) with double quotes', () => {
+    const html = createOutlookHtml('border-top: solid ', '"');
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('This is my reply');
+    expect(result).not.toContain('From:');
+    expect(result).not.toContain('Original message content');
+  });
+
+  it('should handle border-top:solid (no space) with single quotes', () => {
+    const html = createOutlookHtml('border-top:solid ', "'");
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('This is my reply');
+    expect(result).not.toContain('From:');
+    expect(result).not.toContain('Original message content');
+  });
+
+  it('should handle border-top: solid (with space) with single quotes', () => {
+    const html = createOutlookHtml('border-top: solid ', "'");
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('This is my reply');
+    expect(result).not.toContain('From:');
+    expect(result).not.toContain('Original message content');
+  });
+
+  it('should handle border: none with space before border-top', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">My response text.</p>
+        <div style="border: none; border-top: solid #E1E1E1 1.0pt;padding:3.0pt 0in 0in 0in">
+          <p class="MsoNormal"><b>From:</b> Jane Smith</p>
+        </div>
+        <p class="MsoNormal">Quoted content goes here.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('My response text');
+    expect(result).not.toContain('From:');
+    expect(result).not.toContain('Quoted content');
+  });
+
+  it('should handle multiple spaces in border-top: solid', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">My reply here.</p>
+        <div style="border:none;border-top:  solid #B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in">
+          <p class="MsoNormal"><b>From:</b> Bob</p>
+        </div>
+        <p class="MsoNormal">The quote.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('My reply here');
+    expect(result).not.toContain('From:');
+    expect(result).not.toContain('The quote');
+  });
+
+  it('should correctly extract quote when border-top has spacing variation', () => {
+    const html = `
+      <html><body>
+      <div class="WordSection1">
+        <p class="MsoNormal">Reply text.</p>
+        <div style="border:none;border-top: solid #B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in">
+          <p class="MsoNormal"><b>From:</b> Sender</p>
+        </div>
+        <p class="MsoNormal">Quoted message.</p>
+      </div>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const quote = unquote.getQuote({ raw: true });
+    expect(quote).not.toBeNull();
+    expect(quote).toContain('From:');
+    expect(quote).toContain('Quoted message');
+  });
+});
+
 describe('getHtml raw option', () => {
   it('should return cleaned HTML by default', () => {
     const html = `
