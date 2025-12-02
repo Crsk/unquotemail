@@ -17,18 +17,13 @@ import { Unquote } from 'unquotemail';
 const unquote = new Unquote(htmlContent, textContent);
 
 // Primary content (reply history stripped)
-unquote.getHtml();                  // Sanitized HTML (no metadata/noise)
-unquote.getHtml({ clean: false });  // Raw HTML (original structure)
-unquote.getText();                  // Plain text version
-unquote.getMarkdown();              // Markdown version
+unquote.getHtml();              // Cleaned HTML (default)
+unquote.getHtml({ raw: true }); // Raw HTML (original structure)
+unquote.getText();              // Plain text
+unquote.getMarkdown();          // Markdown
 
 // The stripped quote block
-unquote.getQuote();                 // History HTML (null if new thread)
-
-// Parsing happens automatically when you access the content
-console.log(unquote.getHtml());      // HTML without quoted replies
-console.log(unquote.getText());      // Text without quoted replies
-console.log(unquote.getMarkdown());  // Markdown without quoted replies
+unquote.getQuote();             // Quote HTML (null if none)
 ```
 
 ### Standalone Converters

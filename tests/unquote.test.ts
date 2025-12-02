@@ -34,8 +34,8 @@ describe('Unquote', () => {
 
     if (sampleFilename.endsWith('.html')) {
       const unquote = new Unquote(sampleContent, null);
-      // Use clean: false to get original HTML structure (for backward compatibility with expected files)
-      result = unquote.getHtml({ clean: false });
+      // Use raw: true to get original HTML structure (for backward compatibility with expected files)
+      result = unquote.getHtml({ raw: true });
     } else if (sampleFilename.endsWith('.txt')) {
       const unquote = new Unquote(null, sampleContent);
       result = unquote.getText();
@@ -422,8 +422,71 @@ describe('Unquote.getQuote', () => {
       </div>
     `;
     const unquote = new Unquote(html, null);
-    const result = unquote.getHtml({ clean: false });
+    const result = unquote.getHtml({ raw: true });
     expect(result).toContain('This is my reply');
     expect(result).not.toContain('Original message');
+  });
+
+  it('should return cleaned quote HTML by default', () => {
+    const html = `
+      <div>
+        <p>My reply</p>
+        <div class="gmail_quote">
+          <div class="gmail_attr" style="mso-line-height-rule:exactly;font-family:Arial;">On Jan 1, John wrote:</div>
+          <blockquote class="MsoNormal">Original message</blockquote>
+        </div>
+      </div>
+    `;
+    const unquote = new Unquote(html, null);
+    const quote = unquote.getQuote();
+    expect(quote).not.toBeNull();
+    expect(quote).toContain('Original message');
+    // MSO styles should be cleaned
+    expect(quote).not.toContain('mso-line-height-rule');
+    expect(quote).not.toContain('class="MsoNormal"');
+  });
+
+  it('should return raw quote HTML when raw: true', () => {
+    const html = `
+      <div>
+        <p>My reply</p>
+        <div class="gmail_quote">
+          <div class="gmail_attr" style="mso-line-height-rule:exactly;">On Jan 1, John wrote:</div>
+          <blockquote class="MsoNormal">Original message</blockquote>
+        </div>
+      </div>
+    `;
+    const unquote = new Unquote(html, null);
+    const quote = unquote.getQuote({ raw: true });
+    expect(quote).not.toBeNull();
+    expect(quote).toContain('Original message');
+    // Raw should preserve MSO styles
+    expect(quote).toContain('mso-line-height-rule');
+  });
+});
+
+describe('getHtml raw option', () => {
+  it('should return cleaned HTML by default', () => {
+    const html = `
+      <html><body>
+        <p style="mso-line-height-rule:exactly;color:red;">Hello</p>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml();
+    expect(result).toContain('Hello');
+    expect(result).not.toContain('mso-line-height-rule');
+  });
+
+  it('should return raw HTML when raw: true', () => {
+    const html = `
+      <html><body>
+        <p style="mso-line-height-rule:exactly;color:red;">Hello</p>
+      </body></html>
+    `;
+    const unquote = new Unquote(html, null);
+    const result = unquote.getHtml({ raw: true });
+    expect(result).toContain('Hello');
+    expect(result).toContain('mso-line-height-rule');
   });
 });

@@ -7,8 +7,8 @@ import { htmlToMarkdown } from "./htmlToMarkdown";
 import { cleanEmailHtml } from "./htmlCleaner";
 
 export interface GetHtmlOptions {
-  /** If true (default), returns cleaned HTML without noise/metadata. */
-  clean?: boolean;
+  /** If true, returns raw HTML without cleaning. Default: false (cleaned). */
+  raw?: boolean;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -169,11 +169,10 @@ export class Unquote {
 
   /**
    * Get the HTML content without quoted replies.
-   * @param options.clean - If true (default), returns cleaned HTML without noise/metadata.
-   *                        If false, returns the original HTML structure.
+   * @param options.raw - If true, returns raw HTML. Default: false (cleaned).
    */
   getHtml(options: GetHtmlOptions = {}): string | null {
-    const { clean = true } = options;
+    const { raw = false } = options;
 
     this.ensureParsed();
 
@@ -185,8 +184,8 @@ export class Unquote {
       }
     }
 
-    // Return original if clean=false
-    if (!clean) {
+    // Return raw if requested
+    if (raw) {
       return this._html;
     }
 
@@ -212,8 +211,8 @@ export class Unquote {
   getMarkdown(): string | null {
     this.ensureParsed();
     if (this._markdown === null) {
-      // Use clean HTML for markdown conversion
-      const html = this.getHtml({ clean: true });
+      // Use cleaned HTML for markdown conversion
+      const html = this.getHtml();
       if (html) {
         this._markdown = htmlToMarkdown(html).trim();
       }
@@ -224,13 +223,13 @@ export class Unquote {
   /**
    * Get the quoted/replied content that was removed.
    * Returns the HTML of the quoted reply section, or null if no quote was found.
-   * @param options.clean - If true (default), returns cleaned HTML without noise/metadata.
+   * @param options.raw - If true, returns raw HTML. Default: false (cleaned).
    */
   getQuote(options: GetHtmlOptions = {}): string | null {
-    const { clean = true } = options;
+    const { raw = false } = options;
     this.ensureParsed();
     if (!this._quoteHtml) return null;
-    return clean ? cleanEmailHtml(this._quoteHtml) : this._quoteHtml;
+    return raw ? this._quoteHtml : cleanEmailHtml(this._quoteHtml);
   }
 
   /**
