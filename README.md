@@ -1,6 +1,6 @@
 # UnquoteMail
 
-TypeScript port of [unquotemail](https://github.com/getfernand/unquotemail) - parse HTML/text emails and extract only the new message content, removing quoted replies. This fork adds markdown output support.
+TypeScript port of [unquotemail](https://github.com/getfernand/unquotemail) - parse HTML/text emails and extract only the new message content, removing quoted replies. This fork adds markdown output support and performance optimizations.
 
 ## Installation
 
@@ -13,19 +13,13 @@ npm install unquotemail
 ```typescript
 import { Unquote } from 'unquotemail';
 
+// Create instance - parsing is lazy (happens on first getter call)
 const unquote = new Unquote(htmlContent, textContent);
 
+// Parsing happens automatically when you access the content
 console.log(unquote.getHtml());      // HTML without quoted replies
 console.log(unquote.getText());      // Text without quoted replies
 console.log(unquote.getMarkdown());  // Markdown without quoted replies
-```
-
-### Options
-
-```typescript
-// Don't parse immediately
-const unquote = new Unquote(html, text, { parse: false });
-unquote.parse();  // Parse manually later
 ```
 
 ### Standalone Converters

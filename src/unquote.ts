@@ -8,9 +8,8 @@ import { htmlToMarkdown } from './htmlToMarkdown';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type CheerioNode = any;
 
-export interface UnquoteOptions {
-  parse?: boolean;
-}
+// Regex for clearing text - compiled once for performance
+const CLEAR_TEXT_REGEX = /[><\s\r\t\xa0]+/g;
 
 /**
  * Extract original tag names with their casing from HTML
@@ -110,25 +109,31 @@ export class Unquote {
   private _html: string | null = null;
   private _text: string | null = null;
   private _markdown: string | null = null;
+  private _parsed: boolean = false;
+  private _cachedCheerio: CheerioAPI | null = null;
 
-  constructor(
-    html: string | null,
-    text: string | null,
-    options: UnquoteOptions = { parse: true }
-  ) {
+  constructor(html: string | null, text: string | null) {
     if (!html && !text) {
       throw new Error('You must provide at least one of html or text');
     }
 
     this.originalHtml = html ? html.replace(/\xa0/g, ' ') : null;
     this.originalText = text ? text.replace(/\xa0/g, ' ') : null;
+  }
 
-    if (options.parse !== false) {
-      this.parse();
+  /**
+   * Get cached Cheerio instance, creating it on first access
+   */
+  private getCheerio(): CheerioAPI | null {
+    if (!this.originalHtml) return null;
+    if (!this._cachedCheerio) {
+      this._cachedCheerio = cheerio.load(this.originalHtml);
     }
+    return this._cachedCheerio;
   }
 
   getHtml(): string | null {
+    this.ensureParsed();
     if (this._html === null) {
       if (this.originalHtml) {
         this._html = this.originalHtml;
@@ -140,6 +145,7 @@ export class Unquote {
   }
 
   getText(): string | null {
+    this.ensureParsed();
     if (this._text === null) {
       if (this.originalText) {
         this._text = this.originalText;
@@ -151,6 +157,7 @@ export class Unquote {
   }
 
   getMarkdown(): string | null {
+    this.ensureParsed();
     if (this._markdown === null) {
       const html = this.getHtml();
       if (html) {
@@ -158,6 +165,15 @@ export class Unquote {
       }
     }
     return this._markdown;
+  }
+
+  /**
+   * Ensure parse() has been called, calling it if not yet done
+   */
+  private ensureParsed(): void {
+    if (!this._parsed) {
+      this.parse();
+    }
   }
 
   private parseHtml($: CheerioAPI): boolean {
@@ -526,23 +542,24 @@ export class Unquote {
   }
 
   private clearText(text: string): string {
-    let result = text;
-    for (const pattern of ['>', '<', ' ', '\n', '\r', '\t', '\xa0']) {
-      result = result.split(pattern).join('');
-    }
-    return result.trim();
+    return text.replace(CLEAR_TEXT_REGEX, '');
   }
 
   parse(): boolean {
+    if (this._parsed) return false;
+    this._parsed = true;
+
     this._text = this.originalText;
     this._html = this.originalHtml;
 
-    if (this._html) {
-      const $ = cheerio.load(this._html);
+    const $ = this.getCheerio();
 
+    if (this._html && $) {
       if (this.parseHtml($)) {
         this._html = getInnerHtml($, this.originalHtml!);
         this._text = htmlToText(this._html).trim();
+        // Reset cached cheerio since HTML changed
+        this._cachedCheerio = null;
         return true;
       }
 
@@ -586,7 +603,8 @@ export class Unquote {
     this._text = this._text!.substring(0, matchIndex).trim();
 
     if (this._html) {
-      const $ = cheerio.load(this._html);
+      // Use fresh cheerio load for manipulation after pattern match
+      const $fresh = cheerio.load(this._html);
       let content = '';
       let matchingTag: CheerioNode | null = null;
       const lookupText = this.clearText(match[0]);
@@ -595,7 +613,7 @@ export class Unquote {
       const textNodes: CheerioNode[] = [];
       const collectTextNodes = (node: CheerioNode) => {
         node.contents().each((_: number, el: any) => {
-          const $el = $(el);
+          const $el = $fresh(el);
           if (el.type === 'text') {
             textNodes.push($el);
           } else if (el.type === 'tag') {
@@ -603,7 +621,7 @@ export class Unquote {
           }
         });
       };
-      collectTextNodes($.root());
+      collectTextNodes($fresh.root());
 
       for (const textNode of textNodes) {
         const currentText = textNode.text();
@@ -686,13 +704,15 @@ export class Unquote {
           }
         }
 
-        this._html = getInnerHtml($, this.originalHtml!);
+        this._html = getInnerHtml($fresh, this.originalHtml!);
       } else {
         // Rebuild the html from the text
         this._html = this.textToHtml(this._text);
       }
     }
 
+    // Reset cached cheerio since HTML may have changed
+    this._cachedCheerio = null;
     return true;
   }
 
