@@ -344,6 +344,64 @@ describe('htmlToMarkdown', () => {
       const result = htmlToMarkdown(html);
       expect(result).toContain('Quoted Left | Quoted Right');
     });
+
+    it('should not produce trailing pipe when last cell is empty', () => {
+      const html = '<table><tr><td>Content</td><td></td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).not.toMatch(/\|\s*$/m);
+      expect(result).toContain('Content');
+    });
+
+    it('should not produce leading pipe when first cell is empty', () => {
+      const html = '<table><tr><td></td><td>Content</td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).not.toMatch(/^\s*\|/m);
+      expect(result).toContain('Content');
+    });
+
+    it('should not produce trailing pipe when last cell is whitespace-only', () => {
+      const html = '<table><tr><td>Content</td><td>   </td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).not.toMatch(/\|\s*$/m);
+    });
+
+    it('should not produce trailing pipe when last cell is nbsp-only', () => {
+      const html = '<table><tr><td>Content</td><td>&nbsp;</td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).not.toMatch(/\|\s*$/m);
+    });
+
+    it('should not produce trailing pipe when last cell has only br', () => {
+      const html = '<table><tr><td>Content</td><td><br></td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).not.toMatch(/\|\s*$/m);
+    });
+
+    it('should not produce any pipe when all cells are empty', () => {
+      const html = '<table><tr><td></td><td></td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).not.toContain('|');
+    });
+
+    it('should skip empty middle cell and still separate outer cells', () => {
+      const html = '<table><tr><td>Left</td><td></td><td>Right</td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('Left | Right');
+      expect(result).not.toMatch(/\| *\|/); // no consecutive pipes
+    });
+
+    it('should handle nested multi-column table inside multi-column row', () => {
+      // Inner table pipes should be distinguishable from outer table pipes
+      const html = `
+        <table><tr>
+          <td><table><tr><td>Inner A</td><td>Inner B</td></tr></table></td>
+          <td>Outer</td>
+        </tr></table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('Inner A | Inner B');
+      expect(result).toContain('Outer');
+    });
   });
 
   describe('ignored elements', () => {

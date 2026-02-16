@@ -5,8 +5,15 @@ import { NodeHtmlMarkdown } from 'node-html-markdown';
 const cellTranslator = (ctx: any) => ({
   surroundingNewlines: false,
   postfix: ctx.node.nextElementSibling ? ' | ' : '',
-  postprocess: ({ content }: { content: string }) => content.trim(),
+  postprocess: ({ content }: { content: string }) => content.trim() || undefined,
 });
+
+// Cleans up dangling pipes from empty cells in a row
+const cleanRowPipes = ({ content }: { content: string }) =>
+  content
+    .replace(/ \|(\s*\|)+/g, ' |') // consecutive pipes from empty middle cells
+    .replace(/ \|\s*$/, '')          // trailing pipe from empty last cell
+    .replace(/^\s*\| /, '');         // leading pipe from empty first cell
 
 // Create instance with custom translators for email HTML
 const nhm = new NodeHtmlMarkdown(
@@ -20,7 +27,7 @@ const nhm = new NodeHtmlMarkdown(
     table: { preserveWhitespace: true },
     thead: {},
     tbody: {},
-    tr: { postfix: '\n' },
+    tr: { postfix: '\n', postprocess: cleanRowPipes },
     th: cellTranslator,
     td: cellTranslator,
   }
