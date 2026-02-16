@@ -122,7 +122,7 @@ describe('htmlToMarkdown', () => {
   });
 
   describe('email layout tables', () => {
-    it('should flatten layout tables (email-style)', () => {
+    it('should flatten single-column layout tables (no pipes)', () => {
       const html = `
         <table>
           <tr>
@@ -134,15 +134,14 @@ describe('htmlToMarkdown', () => {
         </table>
       `;
       const result = htmlToMarkdown(html);
-      // Should NOT contain table markdown syntax
+      // Single-cell rows should NOT have pipes
       expect(result).not.toContain('|');
       expect(result).not.toMatch(/^-+$/m);
-      // Should contain the text content
       expect(result).toContain('Hello there');
       expect(result).toContain('This is my text inside a layout table');
     });
 
-    it('should flatten deeply nested layout tables', () => {
+    it('should flatten deeply nested single-column tables (no pipes)', () => {
       const html = `
         <table><tr><td>
           <table><tr><td>
@@ -153,6 +152,197 @@ describe('htmlToMarkdown', () => {
       const result = htmlToMarkdown(html);
       expect(result).toContain('Deep content');
       expect(result).not.toContain('|');
+    });
+  });
+
+  describe('multi-column table cell pipe separator', () => {
+    it('should separate two cells in a row with pipe', () => {
+      const html = '<table><tr><td>Left</td><td>Right</td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('Left | Right');
+    });
+
+    it('should separate three cells with pipes', () => {
+      const html = '<table><tr><td>A</td><td>B</td><td>C</td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('A | B | C');
+    });
+
+    it('should not have leading or trailing pipes on rows', () => {
+      const html = '<table><tr><td>A</td><td>B</td></tr></table>';
+      const result = htmlToMarkdown(html);
+      // No leading pipe (that would look like markdown table syntax)
+      expect(result).not.toMatch(/^\s*\|/m);
+      // No trailing pipe
+      expect(result).not.toMatch(/\|\s*$/m);
+    });
+
+    it('should not produce markdown table separator lines', () => {
+      const html = `
+        <table>
+          <tr><th>Name</th><th>Value</th></tr>
+          <tr><td>Key</td><td>123</td></tr>
+        </table>
+      `;
+      const result = htmlToMarkdown(html);
+      // Should NOT have markdown table separator like | --- | --- |
+      expect(result).not.toMatch(/\|\s*-+\s*\|/);
+      // But should have pipe separators between cells
+      expect(result).toContain('Name | Value');
+      expect(result).toContain('Key | 123');
+    });
+
+    it('should handle mixed single and multi-column rows', () => {
+      const html = `
+        <table>
+          <tr><td>Full width header</td></tr>
+          <tr><td>Left</td><td>Right</td></tr>
+          <tr><td>Full width footer</td></tr>
+        </table>
+      `;
+      const result = htmlToMarkdown(html);
+      // Multi-cell row gets pipe
+      expect(result).toContain('Left | Right');
+      // Single-cell rows should NOT have pipes
+      expect(result).toMatch(/Full width header/);
+      expect(result).not.toMatch(/Full width header\s*\|/);
+      expect(result).not.toMatch(/\|\s*Full width footer/);
+    });
+
+    it('should separate cells with formatted text', () => {
+      const html = '<table><tr><td><strong>Bold</strong></td><td><em>Italic</em></td></tr></table>';
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('**Bold** | _Italic_');
+    });
+
+    it('should separate cells with links', () => {
+      const html = `
+        <table><tr>
+          <td><a href="https://example.com">Link A</a></td>
+          <td><a href="https://other.com">Link B</a></td>
+        </tr></table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('[Link A](https://example.com) | [Link B](https://other.com)');
+    });
+
+    it('should separate cells with images', () => {
+      const html = `
+        <table><tr>
+          <td><img src="https://example.com/a.png" alt="Icon A"></td>
+          <td><img src="https://example.com/b.png" alt="Icon B"></td>
+        </tr></table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toMatch(/Icon A.*\|.*Icon B/);
+    });
+
+    it('should handle multi-row multi-column tables', () => {
+      const html = `
+        <table>
+          <tr><td>R1C1</td><td>R1C2</td></tr>
+          <tr><td>R2C1</td><td>R2C2</td></tr>
+          <tr><td>R3C1</td><td>R3C2</td></tr>
+        </table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('R1C1 | R1C2');
+      expect(result).toContain('R2C1 | R2C2');
+      expect(result).toContain('R3C1 | R3C2');
+    });
+
+    it('should pipe-separate inner multi-column table nested inside single-column outer table', () => {
+      const html = `
+        <table><tr><td>
+          <table><tr><td>Inner Left</td><td>Inner Right</td></tr></table>
+        </td></tr></table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('Inner Left | Inner Right');
+    });
+
+    it('should handle DHL-style contact table with icons and labels', () => {
+      const html = `
+        <table align="center" border="0" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td align="center"><img src="https://example.com/whatsapp.png" alt="whatsapp" width="50"></td>
+            <td align="center"><img src="https://example.com/app.png" alt="mobile_app" width="50"></td>
+          </tr>
+          <tr>
+            <td align="center">Contact us on Whatsapp</td>
+            <td align="center">Download our app</td>
+          </tr>
+          <tr>
+            <td align="center">+1(954)953-3545</td>
+            <td align="center">DHL Express Mobile</td>
+          </tr>
+        </table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('Contact us on Whatsapp | Download our app');
+      expect(result).toContain('+1(954)953-3545 | DHL Express Mobile');
+    });
+
+    it('should handle newsletter-style multi-column layout', () => {
+      const html = `
+        <table width="600">
+          <tr>
+            <td width="300">
+              <h3>Article 1</h3>
+              <p>Summary of article one.</p>
+            </td>
+            <td width="300">
+              <h3>Article 2</h3>
+              <p>Summary of article two.</p>
+            </td>
+          </tr>
+        </table>
+      `;
+      const result = htmlToMarkdown(html);
+      // Both articles should be present and pipe-separated at the row level
+      expect(result).toContain('Article 1');
+      expect(result).toContain('Article 2');
+      // The row containing the two cells should have a pipe
+      expect(result).toMatch(/Article 1[\s\S]*?\|[\s\S]*?Article 2/);
+    });
+
+    it('should handle email footer with social media links in columns', () => {
+      const html = `
+        <table>
+          <tr>
+            <td><a href="https://twitter.com/co">Twitter</a></td>
+            <td><a href="https://facebook.com/co">Facebook</a></td>
+            <td><a href="https://linkedin.com/co">LinkedIn</a></td>
+          </tr>
+        </table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toMatch(/Twitter.*\|.*Facebook.*\|.*LinkedIn/);
+    });
+
+    it('should handle cells containing block elements (p tags)', () => {
+      const html = `
+        <table><tr>
+          <td><p>Paragraph in cell 1</p></td>
+          <td><p>Paragraph in cell 2</p></td>
+        </tr></table>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toMatch(/Paragraph in cell 1.*\|.*Paragraph in cell 2/);
+    });
+
+    it('should preserve pipe separator inside blockquote context', () => {
+      // When an email with tables is inside a blockquote (forwarded message)
+      const html = `
+        <blockquote>
+          <table><tr>
+            <td>Quoted Left</td>
+            <td>Quoted Right</td>
+          </tr></table>
+        </blockquote>
+      `;
+      const result = htmlToMarkdown(html);
+      expect(result).toContain('Quoted Left | Quoted Right');
     });
   });
 
