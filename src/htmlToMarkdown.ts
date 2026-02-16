@@ -5,7 +5,7 @@ import { NodeHtmlMarkdown } from 'node-html-markdown';
 const cellTranslator = (ctx: any) => ({
   surroundingNewlines: false,
   postfix: ctx.node.nextElementSibling ? ' | ' : '',
-  postprocess: ({ content }: { content: string }) => content.trim() || undefined,
+  postprocess: ({ content }: { content: string }) => content.trim(),
 });
 
 // Cleans up dangling pipes from empty cells in a row
