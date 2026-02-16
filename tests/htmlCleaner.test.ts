@@ -34,7 +34,6 @@ describe('cleanEmailHtml', () => {
 
   describe('skip tags', () => {
     it('should remove head and its content', () => {
-      const html = '<body><p>Keep</p></body>';
       const full = '<html><head><meta charset="utf-8"><title>Title</title></head><body><p>Keep</p></body></html>';
       expect(cleanEmailHtml(full)).toBe('<p>Keep</p>');
     });
